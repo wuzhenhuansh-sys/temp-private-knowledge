@@ -1,0 +1,24 @@
+{
+  "name": "luban-private-knowledge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "check:embedding": "bun src/scripts/check-embedding.ts",
+    "check:supabase-runtime": "bun src/scripts/check-supabase-runtime.ts",
+    "check:supabase-storage": "bun src/scripts/check-supabase-storage.ts",
+    "test:real-http-e2e": "bun tests/real-http-e2e.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.58.0",
+    "hono": "^4.10.1",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "@types/bun": "latest"
+  }
+}
