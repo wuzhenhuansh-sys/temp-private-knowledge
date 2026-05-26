@@ -4,10 +4,45 @@ import type { ReferenceLibraryRecord } from "./types";
 
 const schema = "public";
 const tableName = "private_reference_libraries";
+const documentsTableName = "private_reference_documents";
 const selectColumns = "id, owner_user_id, name, description, status, document_count, created_at, updated_at";
+
+type ReferenceLibraryDocumentCountRow = {
+  reference_library_id: string;
+};
 
 function librariesTable(client: AppSupabaseClient) {
   return client.schema(schema).from(tableName);
+}
+
+async function hydrateDocumentCounts(
+  client: AppSupabaseClient,
+  ownerUserId: string,
+  libraries: ReferenceLibraryRecord[],
+): Promise<ReferenceLibraryRecord[]> {
+  if (libraries.length === 0) {
+    return libraries;
+  }
+
+  const libraryIds = libraries.map((library) => library.id);
+  const { data, error } = await client
+    .schema(schema)
+    .from(documentsTableName)
+    .select("reference_library_id")
+    .eq("owner_user_id", ownerUserId)
+    .in("reference_library_id", libraryIds);
+
+  if (error) throw error;
+
+  const counts = new Map<string, number>();
+  for (const row of (data ?? []) as ReferenceLibraryDocumentCountRow[]) {
+    counts.set(row.reference_library_id, (counts.get(row.reference_library_id) ?? 0) + 1);
+  }
+
+  return libraries.map((library) => ({
+    ...library,
+    document_count: counts.get(library.id) ?? 0,
+  }));
 }
 
 export async function listReferenceLibrariesByOwner(client: AppSupabaseClient, ownerUserId: string) {
@@ -17,7 +52,7 @@ export async function listReferenceLibrariesByOwner(client: AppSupabaseClient, o
     .order("updated_at", { ascending: false });
 
   if (error) throw error;
-  return (data ?? []) as ReferenceLibraryRecord[];
+  return hydrateDocumentCounts(client, ownerUserId, (data ?? []) as ReferenceLibraryRecord[]);
 }
 
 export async function createReferenceLibrary(client: AppSupabaseClient, ownerUserId: string, input: CreateReferenceLibraryInput) {
@@ -43,7 +78,14 @@ export async function getReferenceLibraryById(client: AppSupabaseClient, ownerUs
     .maybeSingle();
 
   if (error) throw error;
-  return (data ?? null) as ReferenceLibraryRecord | null;
+
+  const [library] = await hydrateDocumentCounts(
+    client,
+    ownerUserId,
+    data ? ([data] as ReferenceLibraryRecord[]) : [],
+  );
+
+  return library ?? null;
 }
 
 export async function updateReferenceLibrary(

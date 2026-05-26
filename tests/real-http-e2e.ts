@@ -11,6 +11,14 @@ type ReferenceLibrary = {
   status: string;
 };
 
+type ReferenceLibraryListResponse = {
+  referenceLibraries: ReferenceLibrary[];
+};
+
+type ReferenceDocumentListResponse = {
+  documents: ReferenceDocument[];
+};
+
 type ReferenceDocument = {
   id: string;
   referenceLibraryId: string;
@@ -182,10 +190,42 @@ async function main() {
     );
     assert(libraryPayload.referenceLibrary.documentCount === fixtures.length, "Library document count is incorrect.");
 
+    const listPayload = await requestJson<ReferenceLibraryListResponse>(baseUrl, "/api/reference-libraries");
+    const listedLibrary = listPayload.referenceLibraries.find((library) => library.id === libraryId);
+    assert(listedLibrary, "Created library is missing from the library list.");
+    assert(listedLibrary.documentCount === fixtures.length, "Library list document count is incorrect.");
+
+    const documentsPayload = await requestJson<ReferenceDocumentListResponse>(
+      baseUrl,
+      `/api/reference-libraries/${libraryId}/documents`,
+    );
+    assert(documentsPayload.documents.length === fixtures.length, "Documents list count is incorrect.");
+    assert(
+      listedLibrary.documentCount === documentsPayload.documents.length,
+      "Library list document count does not match the documents endpoint.",
+    );
+
     for (const documentId of documentIds) {
       await waitForDocumentReady(baseUrl, libraryId, documentId);
     }
     logStep("All documents reached ready status");
+
+    const readyDocumentsPayload = await requestJson<ReferenceDocumentListResponse>(
+      baseUrl,
+      `/api/reference-libraries/${libraryId}/documents`,
+    );
+    assert(
+      readyDocumentsPayload.documents.every((document) => document.indexStatus === "ready"),
+      "Documents endpoint returned a non-ready document after indexing completed.",
+    );
+
+    const refreshedListPayload = await requestJson<ReferenceLibraryListResponse>(baseUrl, "/api/reference-libraries");
+    const refreshedLibrary = refreshedListPayload.referenceLibraries.find((library) => library.id === libraryId);
+    assert(refreshedLibrary, "Created library is missing from the refreshed library list.");
+    assert(
+      refreshedLibrary.documentCount === readyDocumentsPayload.documents.length,
+      "Refreshed library list document count does not match the documents endpoint.",
+    );
 
     const { data: embeddingRows, error: embeddingError } = await client
       .schema("public")

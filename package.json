@@ -7,6 +7,7 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "typecheck": "tsc --noEmit",
+    "test": "bun test tests",
     "check:embedding": "bun src/scripts/check-embedding.ts",
     "check:supabase-runtime": "bun src/scripts/check-supabase-runtime.ts",
     "check:supabase-storage": "bun src/scripts/check-supabase-storage.ts",

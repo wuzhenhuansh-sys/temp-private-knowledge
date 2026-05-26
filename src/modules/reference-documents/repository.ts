@@ -280,22 +280,12 @@ export async function incrementReferenceLibraryDocumentCount(
   ownerUserId: string,
   referenceLibraryId: string,
 ) {
-  const { data, error } = await libraries(client)
-    .select("document_count")
-    .eq("owner_user_id", ownerUserId)
-    .eq("id", referenceLibraryId)
-    .single();
+  const { error } = await client.rpc("increment_private_reference_library_document_count", {
+    p_owner_user_id: ownerUserId,
+    p_reference_library_id: referenceLibraryId,
+  });
 
   if (error) throw error;
-
-  const { error: updateError } = await libraries(client)
-    .update({
-      document_count: data.document_count + 1,
-    })
-    .eq("owner_user_id", ownerUserId)
-    .eq("id", referenceLibraryId);
-
-  if (updateError) throw updateError;
 }
 
 export async function decrementReferenceLibraryDocumentCount(
@@ -303,22 +293,12 @@ export async function decrementReferenceLibraryDocumentCount(
   ownerUserId: string,
   referenceLibraryId: string,
 ) {
-  const { data, error } = await libraries(client)
-    .select("document_count")
-    .eq("owner_user_id", ownerUserId)
-    .eq("id", referenceLibraryId)
-    .single();
+  const { error } = await client.rpc("decrement_private_reference_library_document_count", {
+    p_owner_user_id: ownerUserId,
+    p_reference_library_id: referenceLibraryId,
+  });
 
   if (error) throw error;
-
-  const { error: updateError } = await libraries(client)
-    .update({
-      document_count: Math.max(data.document_count - 1, 0),
-    })
-    .eq("owner_user_id", ownerUserId)
-    .eq("id", referenceLibraryId);
-
-  if (updateError) throw updateError;
 }
 
 export async function deleteReferenceDocumentRecord(

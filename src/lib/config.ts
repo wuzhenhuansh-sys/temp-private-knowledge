@@ -33,4 +33,8 @@ export const config = {
   embeddingModel: process.env.EMBEDDING_MODEL?.trim() || "",
   embeddingBaseUrl: process.env.EMBEDDING_BASE_URL?.trim() || "",
   embeddingApiKey: process.env.EMBEDDING_API_KEY?.trim() || "",
+  llmModel: process.env.LLM_MODEL?.trim() || "",
+  llmFallbackModel: process.env.LLM_FALLBACK_MODEL?.trim() || "",
+  llmBaseUrl: process.env.LLM_BASE_URL?.trim() || "",
+  llmApiKey: process.env.LLM_API_KEY?.trim() || "",
 };

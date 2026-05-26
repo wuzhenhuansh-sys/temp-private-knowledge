@@ -1,4 +1,6 @@
 import { config } from "./config";
+import { HttpRequestError, withRetry } from "./retry";
+import { traceIndexing } from "./trace";
 
 export type EmbeddingResponse = {
   model: string;
@@ -73,39 +75,44 @@ export async function createEmbedding(input: string): Promise<EmbeddingResponse>
     throw new Error("EMBEDDING_MODEL is required.");
   }
 
-  const candidates = ["/embeddings", "/v1/embeddings"];
-  const errors: string[] = [];
+  const path = "/v1/embeddings";
+  const url = joinUrl(config.embeddingBaseUrl, path);
 
-  for (const path of candidates) {
-    const url = joinUrl(config.embeddingBaseUrl, path);
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${config.embeddingApiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.embeddingModel,
-        input,
-      }),
+  try {
+    traceIndexing("embedding.endpoint_start", { path });
+    const parsed = await withRetry(async () => {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${config.embeddingApiKey}`,
+        },
+        body: JSON.stringify({
+          model: config.embeddingModel,
+          input,
+        }),
+      });
+
+      const raw = await response.text();
+      if (!response.ok) {
+        throw new HttpRequestError(`Embedding request to ${path} failed with ${response.status}: ${raw}`, response.status, raw);
+      }
+
+      let payload: unknown;
+      try {
+        payload = JSON.parse(raw);
+      } catch {
+        throw new Error(`Embedding response from ${path} is not valid JSON.`);
+      }
+
+      return parseEmbeddingPayload(payload);
     });
 
-    const raw = await response.text();
-    if (!response.ok) {
-      errors.push(`${path}: ${response.status} ${raw}`);
-      continue;
-    }
-
-    let payload: unknown;
-    try {
-      payload = JSON.parse(raw);
-    } catch {
-      throw new Error(`Embedding response from ${path} is not valid JSON.`);
-    }
-
-    const parsed = parseEmbeddingPayload(payload);
+    traceIndexing("embedding.endpoint_success", { path, model: parsed.model, dimensions: parsed.vector.length });
     return parsed;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    traceIndexing("embedding.endpoint_failed", { path, error: message });
+    throw new Error(`Embedding request failed. ${path}: ${message}`);
   }
-
-  throw new Error(`Embedding request failed for all known endpoints. ${errors.join(" | ")}`);
 }
